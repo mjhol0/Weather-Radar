@@ -1,3 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Weather &amp; Radar</string>
+    <string name="search_placeholder">Search city (e.g. London, Paris...)</string>
+    <string name="doppler_active">DOPPLER ACTIVE</string>
+    <string name="live_stream">LIVE STREAM</string>
+    <string name="paused">PAUSED</string>
+    <string name="doppler_radar_hd">Doppler Radar HD</string>
+    <string name="active_scope">Active Scope: Radar Station %1$s</string>
+    <string name="zoom">Zoom</string>
+    <string name="speed">Speed</string>
+    <string name="slow">Slow</string>
+    <string name="norm">Norm</string>
+    <string name="fast">Fast</string>
+    <string name="hourly_forecast">Hourly Forecast</string>
+    <string name="personalized_warnings">Personalized Advisories</string>
+    <string name="select_profile">Select your profile to customize safety advice:</string>
+    <string name="feels_like">Feels Like</string>
+    <string name="wind_speed">Wind Speed</string>
+    <string name="humidity">Humidity</string>
+    <string name="analyzing_gemini">Analyzing weather conditions with Gemini AI...</string>
+    <string name="advisory_for">Personalized advice for: %1$s</string>
+    <string name="eta_message">Cell Alpha path tracking North-East at 28 km/h.</string>
+    <string name="eta_details">ETA: 35 mins to city center. Heavy downpours &amp; local hail possible.</string>
 </resources>

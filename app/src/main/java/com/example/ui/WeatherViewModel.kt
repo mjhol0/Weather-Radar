@@ -31,7 +31,10 @@ data class WeatherState(
     // Alert personalization
     val selectedPersona: String = "Outdoor Runner",
     val personalizedAlert: String = "",
-    val isAlertLoading: Boolean = false
+    val isAlertLoading: Boolean = false,
+    
+    // Language preference
+    val isArabic: Boolean = false
 )
 
 class WeatherViewModel : ViewModel() {
@@ -45,6 +48,11 @@ class WeatherViewModel : ViewModel() {
         // Initial load for San Francisco
         loadWeatherForCity(_state.value.selectedCity)
         setupSearchDebounce()
+    }
+
+    fun toggleLanguage() {
+        _state.update { it.copy(isArabic = !it.isArabic) }
+        generatePersonalizedAlert()
     }
 
     fun onSearchQueryChanged(query: String) {
@@ -136,21 +144,27 @@ class WeatherViewModel : ViewModel() {
         val currentWeather = currentForecast?.current
 
         if (currentWeather == null) {
-            _state.update { it.copy(personalizedAlert = "No current weather conditions found to analyze.") }
+            val emptyMsg = if (currentState.isArabic) {
+                "لم يتم العثور على ظروف جوية حالية لتحليلها."
+            } else {
+                "No current weather conditions found to analyze."
+            }
+            _state.update { it.copy(personalizedAlert = emptyMsg) }
             return
         }
 
         viewModelScope.launch {
             _state.update { it.copy(isAlertLoading = true) }
             
-            val conditionText = getWeatherConditionName(currentWeather.weatherCode)
+            val conditionText = getWeatherConditionName(currentWeather.weatherCode, currentState.isArabic)
             val alert = GeminiWeatherService.getPersonalizedAlert(
                 condition = conditionText,
                 temp = currentWeather.temperature,
                 windSpeed = currentWeather.windSpeed,
                 humidity = currentWeather.humidity,
                 precipitation = currentWeather.precipitation,
-                persona = currentState.selectedPersona
+                persona = currentState.selectedPersona,
+                isArabic = currentState.isArabic
             )
             
             _state.update {
@@ -163,7 +177,27 @@ class WeatherViewModel : ViewModel() {
     }
 
     companion object {
-        fun getWeatherConditionName(code: Int): String {
+        fun getWeatherConditionName(code: Int, isArabic: Boolean = false): String {
+            if (isArabic) {
+                return when (code) {
+                    0 -> "سماء صافية"
+                    1 -> "صافٍ غالباً"
+                    2 -> "غائم جزئياً"
+                    3 -> "غائم كلياً"
+                    45, 48 -> "ضبابي"
+                    51, 53, 55 -> "رذاذ"
+                    56, 57 -> "رذاذ متجمد"
+                    61, 63, 65 -> "ممطر"
+                    66, 67 -> "مطر متجمد"
+                    71, 73, 75 -> "ثلجي"
+                    77 -> "حبيبات ثلجية"
+                    80, 81, 82 -> "زخات مطر"
+                    85, 86 -> "زخات ثلج"
+                    95 -> "عاصفة رعدية"
+                    96, 99 -> "عاصفة رعدية مع برد"
+                    else -> "ظروف جوية غير معروفة"
+                }
+            }
             return when (code) {
                 0 -> "Clear sky"
                 1 -> "Mainly clear"

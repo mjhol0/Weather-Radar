@@ -85,24 +85,45 @@ object GeminiWeatherService {
         windSpeed: Double,
         humidity: Double,
         precipitation: Double,
-        persona: String
+        persona: String,
+        isArabic: Boolean = false
     ): String = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
-            return@withContext getLocalFallbackAlert(condition, temp, windSpeed, precipitation, persona)
+            return@withContext getLocalFallbackAlert(condition, temp, windSpeed, precipitation, persona, isArabic)
         }
 
-        val prompt = """
-            Generate a personalized severe weather alert/safety advisory.
-            Weather condition: $condition
-            Temperature: ${temp}°C
-            Wind Speed: ${windSpeed} km/h
-            Relative Humidity: ${humidity}%
-            Precipitation: ${precipitation} mm
-            User Persona / Activity Profile: $persona
-            
-            Based on the weather condition and the user's active profile, write a short, highly personalized, action-oriented warning (2-3 sentences max). Talk directly to the user based on their specific needs (e.g. if they are an outdoor runner, suggest home workouts; if a gardener, suggest plants to protect; if senior, alert about heat stroke/slippery walking). Keep it urgent, friendly, and practical. Avoid markdown bullet points or extra preambles.
-        """.trimIndent()
+        val prompt = if (isArabic) {
+            """
+                أنت خبير أرصاد جوية محترف تصيغ تحذيرات مخصصة للسلامة الجوية باللغة العربية الفصحى.
+                حالة الطقس الحالية: $condition
+                درجة الحرارة الحالية: ${temp}°C
+                سرعة الرياح الحالية: ${windSpeed} km/h
+                الرطوبة النسبية الحالية: ${humidity}%
+                هطول الأمطار الحالي: ${precipitation} mm
+                الملف الشخصي للمستخدم والنشاط المفضل: $persona
+                
+                بناءً على حالة الطقس الحالية والملف الشخصي النشط للمستخدم، اكتب تحذيراً موجزاً ومخصصاً للغاية وموجهاً لاتخاذ الإجراءات المناسبة باللغة العربية الفصحى (بحد أقصى جملتين إلى ثلاث جمل). تحدث مباشرة إلى المستخدم بناءً على احتياجاته الخاصة (مثلاً: إذا كان عداءً، اقترح تمارين منزلية؛ إذا كان مزارعاً منزلياً، اقترح حماية النباتات؛ إذا كان من كبار السن، حذر من ضربات الحرارة أو الانزلاق). اجعل الأسلوب عاجلاً، ودوداً وعملياً ومباشراً دون أي مقدمات أو تعدادات نقطية أو استخدام علامات ماركداون معقدة.
+            """.trimIndent()
+        } else {
+            """
+                Generate a personalized severe weather alert/safety advisory.
+                Weather condition: $condition
+                Temperature: ${temp}°C
+                Wind Speed: ${windSpeed} km/h
+                Relative Humidity: ${humidity}%
+                Precipitation: ${precipitation} mm
+                User Persona / Activity Profile: $persona
+                
+                Based on the weather condition and the user's active profile, write a short, highly personalized, action-oriented warning (2-3 sentences max). Talk directly to the user based on their specific needs (e.g. if they are an outdoor runner, suggest home workouts; if a gardener, suggest plants to protect; if senior, alert about heat stroke/slippery walking). Keep it urgent, friendly, and practical. Avoid markdown bullet points or extra preambles.
+            """.trimIndent()
+        }
+
+        val systemInstructionText = if (isArabic) {
+            "أنت خبير أرصاد جوية محترف تصيغ تحذيرات ونصائح مخصصة للسلامة الجوية باللغة العربية الفصحى وبصيغة ودية وعملية ومباشرة للمستخدم."
+        } else {
+            "You are a professional meteorologist crafting hyper-personalized, action-oriented weather safety alerts for individuals with specific profiles."
+        }
 
         val request = GeminiRequest(
             contents = listOf(
@@ -110,17 +131,17 @@ object GeminiWeatherService {
             ),
             generationConfig = GeminiGenerationConfig(temperature = 0.7f),
             systemInstruction = GeminiContent(
-                parts = listOf(GeminiPart(text = "You are a professional meteorologist crafting hyper-personalized, action-oriented weather safety alerts for individuals with specific profiles."))
+                parts = listOf(GeminiPart(text = systemInstructionText))
             )
         )
 
         try {
             val response = GeminiRetrofitClient.service.generateContent(apiKey, request)
             response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
-                ?: getLocalFallbackAlert(condition, temp, windSpeed, precipitation, persona)
+                ?: getLocalFallbackAlert(condition, temp, windSpeed, precipitation, persona, isArabic)
         } catch (e: Exception) {
             e.printStackTrace()
-            getLocalFallbackAlert(condition, temp, windSpeed, precipitation, persona)
+            getLocalFallbackAlert(condition, temp, windSpeed, precipitation, persona, isArabic)
         }
     }
 
@@ -129,13 +150,79 @@ object GeminiWeatherService {
         temp: Double,
         windSpeed: Double,
         precipitation: Double,
-        persona: String
+        persona: String,
+        isArabic: Boolean
     ): String {
         val isRainy = precipitation > 0.1 || condition.contains("rain", ignoreCase = true) || condition.contains("drizzle", ignoreCase = true) || condition.contains("shower", ignoreCase = true)
         val isStormy = condition.contains("thunder", ignoreCase = true) || condition.contains("storm", ignoreCase = true)
         val isCold = temp < 10.0
         val isHot = temp > 30.0
         val isWindy = windSpeed > 25.0
+
+        if (isArabic) {
+            return when (persona) {
+                "Outdoor Runner" -> {
+                    when {
+                        isStormy -> "تحذير للجري: عواصف رعدية شديدة مع خطر البرق! استبدل الجري في الهواء الطلق بجلسة على جهاز الجري الداخلي أو تمارين القوة اليوم."
+                        isRainy -> "نصيحة للجري على أرض زلقة: أمطار خفيفة تتساقط. ارتدِ أحذية جري عالية الثبات، ومعدات عالية الوضوح، وانتبه للممرات المبتلة والبرك المائية."
+                        isHot -> "تنبيه الحرارة الشديدة: درجات حرارة مرتفعة تصل إلى $temp درجة مئوية. اركض في الصباح الباكر، وحافظ على ترطيب جسمك بالكامل، وخفف وتيرتك المعتادة."
+                        isCold -> "نصيحة للجري في البرد: الجو بارد ($temp درجة مئوية). ارتدِ ملابس متعددة الطبقات، وقم بتمارين الإحماء داخل المنزل لفترة أطول."
+                        isWindy -> "تنبيه الرياح القوية: رياح شديدة ($windSpeed كم/ساعة) قد تؤثر على توازنك وسرعتك. حاول الجري في مسار محمي بالأشجار."
+                        else -> "طقس مثالي للجري! الظروف الحالية ممتازة للانطلاق في الهواء الطلق. حافظ على وتيرة ثابتة واستمتع بتمارينك!"
+                    }
+                }
+                "Home Gardener" -> {
+                    when {
+                        isStormy || precipitation > 10.0 -> "تنبيه البستاني: عاصفة قوية مع أمطار غزيرة متوقعة! انقل النباتات الحساسة في الأصص إلى مكان مغطى، وثبّت السيقان الطويلة، وتحقق من تصريف التربة."
+                        isRainy -> "تحديث الري: الطبيعة تسقي نباتاتك اليوم. لا داعي للري اليدوي وراقب رطوبة أحواض التربة الخارجية."
+                        isHot -> "نصيحة ترطيب النباتات: الحرارة الشديدة ($temp درجة مئوية) ستجفف التربة بسرعة. اسقِ نباتاتك بعمق في الصباح الباكر أو المساء، وضف نشارة الخشب للاحتفاظ بالرطوبة."
+                        isCold -> "تحذير من الصقيع: درجات الحرارة المنخفضة ($temp درجة مئوية) قد تهدد المحاصيل الحساسة. غطِّ النباتات لحماية الجذور الحساسة."
+                        isWindy -> "تنبيه الرياح الشديدة: هبات الرياح ($windSpeed كم/ساعة) قد تجفف الأوراق وتكسر السيقان الهشة. انقل السلال المعلقة إلى مناطق محمية."
+                        else -> "يوم رائع للبستنة! الطقس لطيف ومثالي لتقليم النباتات أو إزالة الأعشاب الضارة أو زراعة بذور جديدة."
+                    }
+                }
+                "Senior / Health Sensitive" -> {
+                    when {
+                        isStormy -> "تحذير سلامة صحي: عواصف نشطة قد تسبب انقطاعاً في الطاقة وضغطاً جوياً متغيراً. حافظ على شحن أجهزتك الطبية وابتع في مكان آمن داخل المنزل."
+                        isRainy -> "خطر الانزلاق: المطر يجعل الممرات والسلالم زلقة للغاية. يرجى توخي الحذر الشديد عند المشي في الخارج، وتمسك بالدرابزين، وتجنب الخروج لغير الضرورة."
+                        isHot -> "مخاطر الحرارة الشديدة: الحرارة المرتفعة ($temp درجة مئوية) تشكل ضغطاً على صحة القلب والأوعية الدموية. ابقَ في غرف مكيفة واشرب كميات كافية من الماء البارد وتجنب الجهد البدني."
+                        isCold -> "نصيحة للسلامة من البرد: الهواء البارد ($temp درجة مئوية) قد يسبب انقباض الأوعية الدموية. ارتدِ ملابس حرارية دافئة وحافظ على استقرار تدفئة المنزل."
+                        isWindy -> "تنبيه التوازن: الرياح القوية ($windSpeed كم/ساعة) قد تسبب صعوبة في الاستقرار وتثير الغبار. ارتدِ نظارات واقية وامشِ بحذر على الأرض الوعرة."
+                        else -> "أجواء معتدلة: الهواء لطيف اليوم. نوصي بجولة خفيفة في الظل أو في حديقة مفتوحة لاستنشاق الهواء النقي والنشاط الصباحي!"
+                    }
+                }
+                "Commuter" -> {
+                    when {
+                        isStormy -> "تحذير للمتنقلين: البرق والأمطار الغزيرة والرياح الشديدة قد تسبب تأخيرات مرورية وضبابية في الرؤية. قد ببطء مع تشغيل المصابيح الأمامية لسلامتك."
+                        isRainy -> "تحديث مخاطر الطرق: الطرق الرطبة تزيد من خطر الانزلاق المائي. اترك مسافة أمان كافية وانطلق مبكراً ١٠ دقائق لتفادي تجمعات المياه."
+                        isHot -> "نصيحة لرعاية محرك السيارة: الحرارة الشديدة ($temp درجة مئوية) قد تسبب سخونة المحرك والبطارية بشكل زائد. تحقق من مستوى سائل التبريد ومستوى تبريد المكيف."
+                        isCold -> "تنبيه القيادة في البرد: درجات الحرارة منخفضة بما يكفي لتشكل الجليد الأسود على الجسور. اترك مسافة كبح إضافية وقم بإزالة الصقيع عن النوافذ بالكامل."
+                        isWindy -> "تنقل في رياح شديدة: تمسك بعجلة القيادة بإحكام، خاصة عند قيادة المركبات المرتفعة على الجسور المفتوحة أو عند تجاوز الشاحنات الكبيرة."
+                        else -> "تنقل ميسر: ظروف القيادة خالية من مخاطر الطقس والحمد لله. نتمنى لك رحلة سلسة وآمنة إلى وجهتك!"
+                    }
+                }
+                "Parent / Kids" -> {
+                    when {
+                        isStormy -> "تنبيه اللعب الداخلي: العواصف تعني صواعق وأمطار غزيرة. جهز منطقة لعب داخلية آمنة في المنزل، واستمتع بالألعاب المنزلية والأنشطة اليدوية المرحة."
+                        isRainy -> "نصيحة للعب في المطر: ارتدِ معاطف واقية وأحذية مطاطية للأطفال. إنه موسم القفز في البرك المائية! جهز المناشف للتجفيف السريع بعد اللعب."
+                        isHot -> "مخاطر الشمس والحرارة: شمس حارقة ($temp درجة مئوية). استخدم واقي الشمس 50+ وقبعات، وخطط لزيارة الألعاب في الأماكن المظللة في الأوقات الباردة فحسب."
+                        isCold -> "نصيحة الدفء للأطفال: الأجواء الباردة ($temp درجة مئوية) تتطلب معاطف دافئة وقبعات وقفازات. قلل فترات اللعب في الهواء الطلق لمنع لسعات البرد."
+                        isWindy -> "يوم الرياح للأطفال: هبات الرياح ($windSpeed كم/ساعة) مثالية لتطيير الطائرات الورقية في حقل مفتوح، ولكن تأكد من إبقاء الأطفال دافئين ومحميين بشكل جيد."
+                        else -> "لعب رائع في الهواء الطلق! الطقس مثالي تماماً للذهاب إلى الحديقة أو ركوب الدراجات أو الألعاب المنزلية في الفناء الخلفي."
+                    }
+                }
+                else -> {
+                    when {
+                        isStormy -> "تحذير من طقس سيئ: عواصف نشطة في منطقتك. ابقَ في الداخل، وأغلق النوافذ وابتعد عن الهياكل الطويلة المفتوحة."
+                        isRainy -> "نصيحة المطر: أمطار وهطولات نشطة. أحضر مظلتك وتوقع ظروفاً رطبة في الخارج."
+                        isHot -> "تحذير الحرارة: درجات حرارة مرتفعة جداً. تجنب أشعة الشمس المباشرة واشرب الكثير من السوائل المبردة."
+                        isCold -> "نصيحة البرد: ارتدِ ملابس دافئة وثقيلة للحماية من الأجواء الباردة."
+                        isWindy -> "تحذير الرياح: هبات رياح قوية تحدث حالياً. انتبه للأجسام المتطايرة أثناء السير."
+                        else -> "طقس هادئ: لا توجد ظروف جوية سيئة في منطقتك. نتمنى لك يوماً رائعاً ومباركاً!"
+                    }
+                }
+            }
+        }
 
         return when (persona) {
             "Outdoor Runner" -> {

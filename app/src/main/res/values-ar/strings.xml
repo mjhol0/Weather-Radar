@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">الطقس والرادار</string>
+    <string name="search_placeholder">البحث عن مدينة (مثال: لندن، باريس...)</string>
+    <string name="doppler_active">دوبلر نشط</string>
+    <string name="live_stream">بث مباشر</string>
+    <string name="paused">متوقف مؤقتاً</string>
+    <string name="doppler_radar_hd">رادار دوبلر HD</string>
+    <string name="active_scope">النطاق النشط: محطة رادار %1$s</string>
+    <string name="zoom">التقريب</string>
+    <string name="speed">السرعة</string>
+    <string name="slow">بطيء</string>
+    <string name="norm">عادي</string>
+    <string name="fast">سريع</string>
+    <string name="hourly_forecast">التوقعات الساعية</string>
+    <string name="personalized_warnings">تحذيرات مخصصة</string>
+    <string name="select_profile">اختر ملفك التعريفي لتخصيص نصائح السلامة الجوية:</string>
+    <string name="feels_like">الحرارة المحسوسة</string>
+    <string name="wind_speed">سرعة الرياح</string>
+    <string name="humidity">الرطوبة</string>
+    <string name="analyzing_gemini">جاري تحليل الظروف الجوية بذكاء Gemini...</string>
+    <string name="advisory_for">نصيحة مخصصة لـ: %1$s</string>
+    <string name="eta_message">مسار الخلية ألفا يتجه نحو الشمال الشرقي بسرعة ٢٨ كم/ساعة.</string>
+    <string name="eta_details">الوقت المتوقع للوصول: ٣٥ دقيقة لمركز المدينة. احتمال هطول أمطار غزيرة وتساقط البرد محلياً.</string>
+</resources>

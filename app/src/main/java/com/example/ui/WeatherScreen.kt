@@ -30,7 +30,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -57,10 +59,12 @@ fun WeatherScreen(
     // Background gradient depending on weather condition
     val currentCode = state.forecast?.current?.weatherCode ?: 0
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFF0B131E))
+    val layoutDirection = if (state.isArabic) LayoutDirection.Rtl else LayoutDirection.Ltr
+    CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xFF0B131E))
             .drawBehind {
                 // Draw beautiful soft weather-based background ambient glow blobs
                 val colorTheme = when (currentCode) {
@@ -129,27 +133,49 @@ fun WeatherScreen(
                     )
                 }
 
-                // Small badge for online status / API key check
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White.copy(alpha = 0.08f))
-                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(Color(0xFF81C784), CircleShape)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Language Switcher Button
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                            .clickable { viewModel.toggleLanguage() }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .testTag("language_toggle_btn")
+                    ) {
                         Text(
-                            text = "Doppler Active",
-                            color = Color.White,
+                            text = if (state.isArabic) "English 🇬🇧" else "العربية 🇸🇦",
+                            color = Color(0xFFD3E3FD),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
+                    }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Small badge for online status / API key check
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(Color(0xFF81C784), CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (state.isArabic) "دوبلر نشط" else "Doppler Active",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
@@ -165,12 +191,27 @@ fun WeatherScreen(
                     OutlinedTextField(
                         value = state.searchQuery,
                         onValueChange = { viewModel.onSearchQueryChanged(it) },
-                        placeholder = { Text("Search city (e.g. London, Paris...)", color = Color(0xFFE2E2E6).copy(alpha = 0.5f)) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = Color(0xFFE2E2E6)) },
+                        placeholder = {
+                            Text(
+                                text = if (state.isArabic) "البحث عن مدينة (مثال: لندن، باريس...)" else "Search city (e.g. London, Paris...)",
+                                color = Color(0xFFE2E2E6).copy(alpha = 0.5f)
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = if (state.isArabic) "بحث" else "Search",
+                                tint = Color(0xFFE2E2E6)
+                            )
+                        },
                         trailingIcon = {
                             if (state.searchQuery.isNotEmpty()) {
                                 IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color(0xFFE2E2E6))
+                                    Icon(
+                                        imageVector = Icons.Default.Clear,
+                                        contentDescription = if (state.isArabic) "مسح" else "Clear",
+                                        tint = Color(0xFFE2E2E6)
+                                    )
                                 }
                             }
                         },
@@ -275,6 +316,7 @@ fun WeatherScreen(
                 CurrentWeatherSection(
                     city = state.selectedCity,
                     current = state.forecast?.current,
+                    isArabic = state.isArabic,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
@@ -282,6 +324,7 @@ fun WeatherScreen(
                 state.forecast?.hourly?.let { hourly ->
                     HourlyForecastSection(
                         hourly = hourly,
+                        isArabic = state.isArabic,
                         modifier = Modifier.padding(bottom = 20.dp)
                     )
                 }
@@ -289,6 +332,7 @@ fun WeatherScreen(
                 // --- INTERACTIVE DOPPLER RADAR ---
                 DopplerRadarSection(
                     cityName = state.selectedCity.name,
+                    isArabic = state.isArabic,
                     modifier = Modifier.padding(bottom = 20.dp)
                 )
 
@@ -303,17 +347,19 @@ fun WeatherScreen(
         }
     }
 }
+}
 
 // --- CURRENT CONDITIONS COMPONENT ---
 @Composable
 fun CurrentWeatherSection(
     city: GeocodingResult,
     current: CurrentWeather?,
+    isArabic: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     if (current == null) return
 
-    val conditionName = WeatherViewModel.getWeatherConditionName(current.weatherCode)
+    val conditionName = WeatherViewModel.getWeatherConditionName(current.weatherCode, isArabic)
 
     Card(
         shape = RoundedCornerShape(28.dp),
@@ -398,17 +444,17 @@ fun CurrentWeatherSection(
             ) {
                 WeatherDetailItem(
                     icon = Icons.Outlined.DeviceThermostat,
-                    label = "Feels Like",
+                    label = if (isArabic) "الحرارة المحسوسة" else "Feels Like",
                     value = "${current.apparentTemperature.toInt()}°C"
                 )
                 WeatherDetailItem(
                     icon = Icons.Outlined.Air,
-                    label = "Wind Speed",
-                    value = "${current.windSpeed.toInt()} km/h"
+                    label = if (isArabic) "سرعة الرياح" else "Wind Speed",
+                    value = if (isArabic) "${current.windSpeed.toInt()} كم/س" else "${current.windSpeed.toInt()} km/h"
                 )
                 WeatherDetailItem(
                     icon = Icons.Outlined.WaterDrop,
-                    label = "Humidity",
+                    label = if (isArabic) "الرطوبة" else "Humidity",
                     value = "${current.humidity.toInt()}%"
                 )
             }
@@ -451,6 +497,7 @@ fun WeatherDetailItem(
 @Composable
 fun HourlyForecastSection(
     hourly: HourlyForecast,
+    isArabic: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -463,7 +510,7 @@ fun HourlyForecastSection(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Hourly Forecast",
+                text = if (isArabic) "التوقعات الساعية" else "Hourly Forecast",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -566,6 +613,7 @@ data class RadarCell(
 @Composable
 fun DopplerRadarSection(
     cityName: String,
+    isArabic: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     // Interactive radar state: zoom, scan speed, play/pause state
@@ -634,13 +682,13 @@ fun DopplerRadarSection(
             ) {
                 Column {
                     Text(
-                        text = "Doppler Radar HD",
+                        text = if (isArabic) "رادار دوبلر HD" else "Doppler Radar HD",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
                     Text(
-                        text = "Active Scope: $cityName Radar Station",
+                        text = if (isArabic) "النطاق النشط: محطة رادار $cityName" else "Active Scope: $cityName Radar Station",
                         fontSize = 11.sp,
                         color = Color(0xFF00E676),
                         fontWeight = FontWeight.SemiBold
@@ -655,7 +703,11 @@ fun DopplerRadarSection(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isScanning) "LIVE STREAM" else "PAUSED",
+                        text = if (isScanning) {
+                            if (isArabic) "بث مباشر" else "LIVE STREAM"
+                        } else {
+                            if (isArabic) "متوقف مؤقتاً" else "PAUSED"
+                        },
                         color = if (isScanning) Color(0xFF00E676) else Color.Red,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
@@ -825,7 +877,7 @@ fun DopplerRadarSection(
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "ZOOM: ${zoomLevel.toInt()}x",
+                        text = if (isArabic) "التقريب: ${zoomLevel.toInt()}x" else "ZOOM: ${zoomLevel.toInt()}x",
                         color = Color(0xFF00E676),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
@@ -843,7 +895,12 @@ fun DopplerRadarSection(
             ) {
                 // Zoom selector
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Zoom", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, modifier = Modifier.padding(end = 6.dp))
+                    Text(
+                        text = if (isArabic) "تكبير" else "Zoom",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(end = 6.dp)
+                    )
                     listOf(1.0f, 2.0f, 4.0f).forEach { z ->
                         val active = zoomLevel == z
                         Box(
@@ -866,14 +923,19 @@ fun DopplerRadarSection(
 
                 // Sweep speed selector
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Speed", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, modifier = Modifier.padding(end = 6.dp))
+                    Text(
+                        text = if (isArabic) "سرعة" else "Speed",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(end = 6.dp)
+                    )
                     listOf(0.5f, 1.0f, 2.0f).forEach { speed ->
                         val active = scanSpeedMultiplier == speed
                         val speedLabel = when(speed) {
-                            0.5f -> "Slow"
-                            1.0f -> "Norm"
-                            2.0f -> "Fast"
-                            else -> "Norm"
+                            0.5f -> if (isArabic) "بطيء" else "Slow"
+                            1.0f -> if (isArabic) "عادي" else "Norm"
+                            2.0f -> if (isArabic) "سريع" else "Fast"
+                            else -> if (isArabic) "عادي" else "Norm"
                         }
                         Box(
                             modifier = Modifier
@@ -929,13 +991,13 @@ fun DopplerRadarSection(
                 Spacer(modifier = Modifier.width(8.dp))
                 Column {
                     Text(
-                        text = "Cell Alpha heading North-East at 28 km/h.",
+                        text = if (isArabic) "خلية ألفا تتجه نحو الشمال الشرقي بسرعة ٢٨ كم/ساعة." else "Cell Alpha heading North-East at 28 km/h.",
                         color = Color.White,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Estimated ETA: 35 minutes to metro center. Local heavy rain & hail possible.",
+                        text = if (isArabic) "الوقت المتوقع للوصول: ٣٥ دقيقة للمركز. احتمال هطول أمطار غزيرة وتساقط البرد." else "Estimated ETA: 35 minutes to metro center. Local heavy rain & hail possible.",
                         color = Color.White.copy(alpha = 0.6f),
                         fontSize = 11.sp
                     )
@@ -954,6 +1016,23 @@ fun PersonalizedAlertsSection(
     modifier: Modifier = Modifier
 ) {
     val personas = listOf("Outdoor Runner", "Home Gardener", "Senior / Health Sensitive", "Commuter", "Parent / Kids")
+    val personaDisplayNames = if (state.isArabic) {
+        mapOf(
+            "Outdoor Runner" to "عدّاء خارجي",
+            "Home Gardener" to "بستاني منزلي",
+            "Senior / Health Sensitive" to "كبار السن / حساس للصحة",
+            "Commuter" to "مسافر يومي",
+            "Parent / Kids" to "الوالدان / الأطفال"
+        )
+    } else {
+        mapOf(
+            "Outdoor Runner" to "Outdoor Runner",
+            "Home Gardener" to "Home Gardener",
+            "Senior / Health Sensitive" to "Senior / Health Sensitive",
+            "Commuter" to "Commuter",
+            "Parent / Kids" to "Parent / Kids"
+        )
+    }
 
     Card(
         shape = RoundedCornerShape(28.dp),
@@ -979,7 +1058,7 @@ fun PersonalizedAlertsSection(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Personalized Warnings",
+                        text = if (state.isArabic) "تحذيرات مخصصة" else "Personalized Warnings",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -1001,7 +1080,7 @@ fun PersonalizedAlertsSection(
             }
 
             Text(
-                text = "Select your daily activity profile to customize meteorologist safety insights:",
+                text = if (state.isArabic) "اختر ملف نشاطك اليومي لتخصيص نصائح السلامة من خبير الأرصاد الجوية:" else "Select your daily activity profile to customize meteorologist safety insights:",
                 fontSize = 11.sp,
                 color = Color.White.copy(alpha = 0.6f),
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
@@ -1014,6 +1093,7 @@ fun PersonalizedAlertsSection(
             ) {
                 itemsIndexed(personas) { _, persona ->
                     val isSelected = state.selectedPersona == persona
+                    val displayName = personaDisplayNames[persona] ?: persona
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
@@ -1023,7 +1103,7 @@ fun PersonalizedAlertsSection(
                             .testTag("persona_chip_${persona.replace(" ", "_").lowercase()}")
                     ) {
                         Text(
-                            text = persona,
+                            text = displayName,
                             color = if (isSelected) Color.Black else Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
@@ -1049,7 +1129,7 @@ fun PersonalizedAlertsSection(
                         CircularProgressIndicator(color = Color(0xFFFFB74D), modifier = Modifier.size(24.dp))
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Analyzing conditions with Gemini AI...",
+                            text = if (state.isArabic) "جاري تحليل الظروف الجوية عبر جيميناي ذكاء اصطناعي..." else "Analyzing conditions with Gemini AI...",
                             fontSize = 12.sp,
                             color = Color.White.copy(alpha = 0.7f),
                             fontWeight = FontWeight.SemiBold
@@ -1073,7 +1153,7 @@ fun PersonalizedAlertsSection(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "ADVISORY FOR: ${state.selectedPersona.uppercase()}",
+                                text = if (state.isArabic) "توصيات لـ: ${(personaDisplayNames[state.selectedPersona] ?: state.selectedPersona).uppercase()}" else "ADVISORY FOR: ${state.selectedPersona.uppercase()}",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Black,
                                 color = Color(0xFFFFB74D),
